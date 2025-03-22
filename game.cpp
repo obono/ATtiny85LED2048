@@ -1,13 +1,4 @@
-#include <Arduino.h>
-
-/*  Defines  */
-
-#define SIZE    4
-
-/*  Global Functions  */
-
-void initGame(void);
-void updateGame(int8_t vx, int8_t vy);
+#include "common.h"
 
 /*  Local Functions  */
 
@@ -22,24 +13,10 @@ static bool isGameOver(void);
 PROGMEM static const uint16_t tileColors[] = {
     0x000, 0xE00, 0xE40, 0xCA0, 0x480, 0x041, 0x046, 0x00F, 0x20C, 0x92C, 0xC88, 0xFFF,
 };
-/*
-    0,  0,  0,  // 0
-    28, 0,  0,  // 1
-    28, 8,  0,  // 2
-    24, 20, 0,  // 3
-    8,  16, 0,  // 4
-    0,  8,  2,  // 5
-    0,  8,  12, // 6
-    0,  0,  32, // 7
-    4,  0,  24, // 8
-    18, 4,  24, // 9
-    24, 16, 16, // 10
-    32, 32, 32, // 11
-*/
 
 /*  Local Variables  */
 
-static int8_t board[SIZE][SIZE];
+static int8_t board[BOARD_SIZE][BOARD_SIZE];
 static int8_t empty;
 
 /*---------------------------------------------------------------------------*/
@@ -47,7 +24,7 @@ static int8_t empty;
 void initGame(void)
 {
     memset(board, 0, sizeof(board));
-    empty = SIZE * SIZE;
+    empty = BOARD_SIZE * BOARD_SIZE;
     addRandomTile();
     addRandomTile();
 }
@@ -77,19 +54,19 @@ void getGamePixel(int8_t x, int8_t y, uint8_t &r, uint8_t &g, uint8_t &b)
 
 static int8_t getTile(int8_t x, int8_t y)
 {
-    return (x >= 0 && x < SIZE && y >= 0 && y < SIZE) ? board[y][x] : -1;
+    return (x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) ? board[y][x] : -1;
 }
 
 static void setTile(int8_t x, int8_t y, int8_t tile)
 {
-    if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) board[y][x] = tile;
+    if (x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) board[y][x] = tile;
 }
 
 static void addRandomTile(void)
 {
     int8_t position = random() % empty;
-    for (int8_t y = 0; y < SIZE; y++) {
-        for (int8_t x = 0; x < SIZE; x++) {
+    for (int8_t y = 0; y < BOARD_SIZE; y++) {
+        for (int8_t x = 0; x < BOARD_SIZE; x++) {
             if (getTile(x, y) == 0 && position-- == 0) {
                 setTile(x, y, (random() % 10 == 0) ? 2 : 1);
                 empty--;
@@ -102,11 +79,11 @@ static void addRandomTile(void)
 static bool moveTiles(int8_t vx, int8_t vy)
 {
     bool moved = false;
-    bool merged[SIZE][SIZE] = { false };
-    for (int8_t i = 0; i < SIZE; i++) {
-        for (int8_t j = 0; j < SIZE; j++) {
-            int8_t x = (vx > 0) ? SIZE - 1 - j : j;
-            int8_t y = (vy > 0) ? SIZE - 1 - i : i;
+    bool merged[BOARD_SIZE][BOARD_SIZE] = { false };
+    for (int8_t i = 0; i < BOARD_SIZE; i++) {
+        for (int8_t j = 0; j < BOARD_SIZE; j++) {
+            int8_t x = (vx > 0) ? BOARD_SIZE - 1 - j : j;
+            int8_t y = (vy > 0) ? BOARD_SIZE - 1 - i : i;
             int8_t tile = getTile(x, y);
             if (tile != 0) {
                 board[y][x] = 0;
@@ -133,8 +110,8 @@ static bool moveTiles(int8_t vx, int8_t vy)
 static bool isGameOver(void)
 {
     if (empty > 0) return false;
-    for (int8_t y = 0; y < SIZE; y++) {
-        for (int8_t x = 0; x < SIZE; x++) {
+    for (int8_t y = 0; y < BOARD_SIZE; y++) {
+        for (int8_t x = 0; x < BOARD_SIZE; x++) {
             int8_t tile = board[y][x];
             if (tile == 0) return false;
             if (getTile(x - 1, y) == tile || getTile(x + 1, y) == tile ||
