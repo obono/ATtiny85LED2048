@@ -42,6 +42,9 @@ void initDevices(void)
     data = MEASURE;
     SIMPLEWIRE::writeWithCommand(ADXL345_ADDR, POWER_CTL, &data, 1);
     lastVx = lastVy = lastVz = 0;
+    unsigned long seed;
+    SIMPLEWIRE::readWithCommand(ADXL345_ADDR, DATAX0, (uint8_t *)&seed, sizeof(seed));
+    randomSeed(seed);
 
     pixels.begin();
     pixels.fill();

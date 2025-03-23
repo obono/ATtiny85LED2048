@@ -15,13 +15,11 @@ void loop(void)
 {
     int8_t vx, vy;
 #if 1
-    if (getTilt(vx, vy)) {
-        updateGame(vx, vy);
-        refreshPixels(getGamePixel);
-    }
+    getTilt(vx, vy) ? updateGame(vx, vy) : updateGame(0, 0);
+    refreshPixels(getGamePixel);
 #else
     getTilt(vx, vy);
     refreshPixels(getCalibrationPixel);
 #endif
-    delay(100);
+    delay(50);
 }
