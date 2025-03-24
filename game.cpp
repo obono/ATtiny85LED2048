@@ -57,7 +57,7 @@ void updateGame(int8_t vx, int8_t vy)
     switch (state) {
         case STATE_IDLE:
             if (flash > 0) flash--;
-            if (vx != 0 || vy != 0) {
+            if (vx != 0 && vy == 0 || vx == 0 && vy != 0) {
                 prepareTiles();
                 if (moveTiles(vx, vy)) {
                     moveVx = vx;

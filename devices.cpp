@@ -8,76 +8,72 @@
 
 /*  Defines  */
 
-#define SIMPLEWIRE      SimpleWire<SimpleWire_1M>
-#define ADXL345_ADDR    0x53
-#define DATA_FORMAT     0x31
-#define POWER_CTL       0x2D
-#define DATAX0          0x32
-#define FULL_RES_16G    0x0B
-#define BIT10_16G       0x03
-#define MEASURE         0x08
+#define ADXL345_I2C_ADDR            0x53
+#define ADXL345_REG_BW_RATE         0x2C
+#define ADXL345_REG_POWER_CTL       0x2D
+#define ADXL345_REG_DATA_FORMAT     0x31
+#define ADXL345_REG_DATAX0          0x32
+#define ADXL345_VAL_LOW_POWER_25HZ  0x18
+#define ADXL345_VAL_FULL_RES_2G     0x08
+#define ADXL345_VAL_MEASURE         0x08
 
-#define TILT_X_SIGN     -1
-#define TILT_Y_SIGN     1
-#define TILT_Z_SIGN     1
-#define TILT_ON         64
-#define TILT_OFF        32
-
+#define TILT_X_SIGN         -1
+#define TILT_Y_SIGN         1
+#define TILT_Z_SIGN         1
+#define TILT_ON             80
+#define TILT_OFF            30
 
 #define PIXELS_PIN          3
 #define PIXELS_NUMBER       (BOARD_SIZE * BOARD_SIZE)
 #define PIXELS_BRIGHTNESS   128 // TODO
 
+/*  Typedefs  */
+
+typedef SimpleWire<SimpleWire_1M> SimpleWire1M;
+
 /*  Local Variables  */
 
 static Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXELS_NUMBER, PIXELS_PIN, NEO_GRB + NEO_KHZ800);
-static int16_t lastVx, lastVy, lastVz;
+static int8_t lastVx, lastVy, currentVx, currentVy;
+
+/*---------------------------------------------------------------------------*/
 
 void initDevices(void)
 {
-    uint8_t data;
-    SIMPLEWIRE::begin();
-    data = FULL_RES_16G;
-    SIMPLEWIRE::writeWithCommand(ADXL345_ADDR, DATA_FORMAT, &data, 1);
-    data = MEASURE;
-    SIMPLEWIRE::writeWithCommand(ADXL345_ADDR, POWER_CTL, &data, 1);
-    lastVx = lastVy = lastVz = 0;
-    unsigned long seed;
-    SIMPLEWIRE::readWithCommand(ADXL345_ADDR, DATAX0, (uint8_t *)&seed, sizeof(seed));
-    randomSeed(seed);
+    SimpleWire1M::begin();
+    uint8_t data[4];
+    data[0] = ADXL345_VAL_LOW_POWER_25HZ;
+    data[1] = ADXL345_VAL_MEASURE;
+    SimpleWire1M::writeWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_BW_RATE, data, 2);
+    data[0] = ADXL345_VAL_FULL_RES_2G;
+    SimpleWire1M::writeWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_DATA_FORMAT, data, 1);
+    currentVx = currentVy = 0;
+    SimpleWire1M::readWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_DATAX0, data, 4);
+    randomSeed((unsigned long)*data);
 
     pixels.begin();
-    pixels.fill();
+    pixels.clear();
     pixels.setBrightness(PIXELS_BRIGHTNESS);
 }
 
-bool getTilt(int8_t &vx, int8_t &vy)
+void getDPad(int8_t &vx, int8_t &vy)
 {
-    static bool isTilted = true;
-    bool ret = false;
+    lastVx = currentVx;
+    lastVy = currentVy;
     uint8_t dac[6];
-    if (SIMPLEWIRE::readWithCommand(ADXL345_ADDR, DATAX0, dac, sizeof(dac)) > 0) {
-        lastVx = ((dac[1] << 8) | dac[0]) * TILT_X_SIGN;
-        lastVy = ((dac[3] << 8) | dac[2]) * TILT_Y_SIGN;
-        lastVz = ((dac[5] << 8) | dac[4]) * TILT_Z_SIGN;
-        if (isTilted) {
-            if (abs(lastVx) < TILT_OFF && abs(lastVy) < TILT_OFF) isTilted = false;
-        } else {
-            if (abs(lastVx) > TILT_ON || abs(lastVy) > TILT_ON) isTilted = ret = true;
-        }
+    if (SimpleWire1M::readWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_DATAX0, dac, sizeof(dac)) > 0) {
+        int16_t tiltX = ((dac[1] << 8) | dac[0]) * TILT_X_SIGN;
+        int16_t tiltY = ((dac[3] << 8) | dac[2]) * TILT_Y_SIGN;
+        int16_t tiltZ = ((dac[5] << 8) | dac[4]) * TILT_Z_SIGN;
+        if (lastVx < 0 && tiltX >= -TILT_OFF || lastVx > 0 && tiltX <= TILT_OFF) currentVx = 0;
+        if (tiltX <= -TILT_ON) currentVx = -1;
+        if (tiltX >= TILT_ON) currentVx = 1;
+        if (lastVy < 0 && tiltY >= -TILT_OFF || lastVy > 0 && tiltY <= TILT_OFF) currentVy = 0;
+        if (tiltY <= -TILT_ON) currentVy = -1;
+        if (tiltY >= TILT_ON) currentVy = 1;
     }
-    if (isTilted) {
-        if (abs(lastVx) > abs(lastVy)) {
-            vx = (lastVx > 0) ? 1 : -1;
-            vy = 0;
-        } else {
-            vx = 0;
-            vy = (lastVy > 0) ? 1 : -1;
-        }
-    } else {
-        vx = vy = 0;
-    }
-    return ret;
+    vx = (currentVx != lastVx) ? currentVx : 0;
+    vy = (currentVy != lastVy) ? currentVy : 0;
 }
 
 void getCalibrationPixel(int8_t x, int8_t y, uint8_t &r, uint8_t &g, uint8_t &b)
