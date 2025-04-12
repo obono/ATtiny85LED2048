@@ -11,6 +11,7 @@ void loop(void)
     int8_t vx, vy;
     getDPad(vx, vy);
     updateGame(vx, vy);
-    refreshPixels(getGamePixel);
-    delay(50);
+    refreshPixels();
+    manageConfigByButton();
+    delay(MILLIS_PER_FRAME);
 }

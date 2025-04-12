@@ -29,14 +29,14 @@ static bool isGameOver(void);
 /*  Local Constants  */
 
 PROGMEM static const uint16_t tileColors[TILE_MAX + 1] = {
-    0x000, 0xE00, 0xE40, 0xCA0, 0x480, 0x041, 0x06A, 0x00F, 0x20C, 0x92C, 0xC88, 0xFFF,
+    0x000, 0xE00, 0xE40, 0xCA0, 0x480, 0x041, 0x06A, 0x00F, 0x20C, 0x92C, 0xC88, 0xFFF
 };
 
 /*  Local Variables  */
 
 static int8_t board[BOARD_SIZE][BOARD_SIZE];
 static uint16_t mergedFlags;
-static int8_t empty, state, moveVx, moveVy, maxTile;
+static int8_t empty, state, moveVx, moveVy, bestTile;
 static int8_t flash, addedX, addedY, blink;
 
 /*---------------------------------------------------------------------------*/
@@ -47,7 +47,7 @@ void initGame(void)
     addRandomTile();
     addRandomTile();
     prepareTiles();
-    maxTile = 1;
+    bestTile = 1;
     blink = 0;
     state = STATE_IDLE;
 }
@@ -88,7 +88,7 @@ void getGamePixel(int8_t x, int8_t y, uint8_t &r, uint8_t &g, uint8_t &b)
         uint16_t color = pgm_read_word(&tileColors[tile]);
         uint8_t w = 0, d = 0;
         if (state == STATE_OVER) {
-            if (tile != maxTile && blink <= 8) d = 5 - abs(4 - blink);
+            if (tile != bestTile && blink <= 8) d = 5 - abs(4 - blink);
         } else {
             if (isMerged(x, y)) w = flash;
             if (tile == (blink >> 1) + 1 && (blink & 1) == 0) d = 1;
@@ -173,7 +173,7 @@ static void updateTiles(void)
         for (int8_t x = 0; x < BOARD_SIZE; x++) {
             if (isMerged(x, y)) {
                 int8_t tile = getTile(x, y) + 1;
-                if (maxTile < tile) maxTile = tile;
+                if (bestTile < tile) bestTile = tile;
                 setTile(x, y, tile);
             }
         }
@@ -182,7 +182,7 @@ static void updateTiles(void)
 
 static bool isGameOver(void)
 {
-    if (maxTile == TILE_MAX) return true;
+    if (bestTile == TILE_MAX) return true;
     if (empty > 0) return false;
     for (int8_t y = 0; y < BOARD_SIZE; y++) {
         for (int8_t x = 0; x < BOARD_SIZE; x++) {
