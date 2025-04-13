@@ -20,12 +20,16 @@ Attribute        |Value
 -----------------|------------------------------
 Board            |ATtiny25/45/85 (No bootloader)
 Chip             |ATtiny85
-Clock            |16 MHz (PLL)
+Clock            |8 MHz (Internal)
 B.O.D. Level     |B.O.D. Disabled (saves power)
 Save EEPROM      |EEPROM retained
 Timer 1 Clock    |CPU (CPU frequency)
 LTO              |Enabled
 millis()/micros()|Enabled
+
+This sketch depends on following library. (You can add this by library manager)
+
+* [Adafruit NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)
 
 ### Acknowledgement
 

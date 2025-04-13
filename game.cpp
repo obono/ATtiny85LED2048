@@ -32,6 +32,52 @@ PROGMEM static const uint16_t tileColors[TILE_MAX + 1] = {
     0x000, 0xE00, 0xE40, 0xCA0, 0x480, 0x041, 0x06A, 0x00F, 0x20C, 0x92C, 0xC88, 0xFFF
 };
 
+PROGMEM static const uint8_t soundStart[] = {
+    72, 12, 74, 12, 76, 12, 77, 12, 79, 36, 0xFF
+};
+PROGMEM static const uint8_t soundOver[] = {
+    55, 10, 54, 12, 53, 14, 52, 16, 51, 18, 50, 20, 49, 22, 48, 24, 0xFF
+};
+
+PROGMEM static const uint8_t soundMove[] = {
+    59, 1, 0xFF
+};
+PROGMEM static const uint8_t soundMerge4[] = {
+    74, 2, 78, 2, 0xFF
+};
+PROGMEM static const uint8_t soundMerge8[] = {
+    77, 2, 81, 2, 85, 2, 0xFF
+};
+PROGMEM static const uint8_t soundMerge16[] = {
+    82, 2, 87, 2, 92, 2, 97, 2, 0xFF
+};
+PROGMEM static const uint8_t soundMerge32[] = {
+    69, 3, 81, 3, 93, 3, 72, 3, 84, 3, 96, 3, 77, 3, 89, 3, 101, 3, 0xFF
+};
+PROGMEM static const uint8_t soundMerge64[] = {
+    71, 4, 83, 4, 95, 4, 74, 4, 86, 4, 98, 4, 79, 4, 91, 4, 103, 4, 0xFF
+};
+PROGMEM static const uint8_t soundMerge128[] = {
+    72, 4, 84, 4, 96, 4, 76, 4, 88, 4, 100, 4, 79, 4, 91, 4, 103, 4, 84, 4, 96, 4, 108, 4, 0xFF
+};
+PROGMEM static const uint8_t soundMerge256[] = {
+    67, 6, 72, 6, 69, 6, 74, 6, 71, 6, 76, 6, 72, 6, 77, 6, 0xFF
+};
+PROGMEM static const uint8_t soundMerge512[] = {
+    69, 7, 73, 7, 76, 7, 81, 7, 71, 7, 74, 7, 78, 7, 83, 7, 0xFF
+};
+PROGMEM static const uint8_t soundMerge1024[] = {
+    71, 8, 75, 8, 78, 8, 77, 8, 75, 8, 77, 8, 78, 8, 83, 8, 0xFF
+};
+PROGMEM static const uint8_t soundMerge2048[] = {
+    72, 10, 79, 10, 76, 10, 79, 10, 81, 10, 77, 10, 83, 10, 79, 10, 84, 15, 0xFF
+};
+
+PROGMEM static const uint8_t *const soundMergeTable[] = {
+    soundMove, NULL, soundMerge4, soundMerge8, soundMerge16, soundMerge32, soundMerge64,
+    soundMerge128, soundMerge256, soundMerge512, soundMerge1024, soundMerge2048
+};
+
 /*  Local Variables  */
 
 static int8_t board[BOARD_SIZE][BOARD_SIZE];
@@ -50,6 +96,7 @@ void initGame(void)
     bestTile = 1;
     blink = 0;
     state = STATE_IDLE;
+    playScore(soundStart, TILE_MAX);
 }
 
 void updateGame(int8_t vx, int8_t vy)
@@ -169,15 +216,18 @@ static bool moveTiles(int8_t vx, int8_t vy)
 
 static void updateTiles(void)
 {
+    uint8_t soundValue = 0;
     for (int8_t y = 0; y < BOARD_SIZE; y++) {
         for (int8_t x = 0; x < BOARD_SIZE; x++) {
             if (isMerged(x, y)) {
                 int8_t tile = getTile(x, y) + 1;
                 if (bestTile < tile) bestTile = tile;
+                if (soundValue < tile) soundValue = tile;
                 setTile(x, y, tile);
             }
         }
     }
+    playScore((const uint8_t *)pgm_read_word(&soundMergeTable[soundValue]), soundValue);
 }
 
 static bool isGameOver(void)
@@ -192,5 +242,6 @@ static bool isGameOver(void)
                 getTile(x, y - 1) == tile || getTile(x, y + 1) == tile) return false;
         }
     }
+    playScore(soundOver, TILE_MAX);
     return true;
 }

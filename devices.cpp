@@ -10,6 +10,7 @@
 /*  Defines  */
 
 #define BUTTON_PIN          0
+#define BUTTON_FRAMES_SOUND 20 // 1 second
 #define BUTTON_FRAMES_SAVE  100 // 5 seconds
 
 #define ADXL345_I2C_ADDR            0x53
@@ -25,12 +26,16 @@
 #define TILT_ON             80
 #define TILT_OFF            30
 #define TILT_1G             256
-#define TILT_TOLERANCE      12
+#define TILT_TOLERANCE      16
 #define TILT_OFFSET_SAMPLES 32
 
 #define PIXELS_PIN          3
 #define PIXELS_NUMBER       (BOARD_SIZE * BOARD_SIZE)
 #define BRIGHTNESS_MAX      4
+
+#define SPEAKER_PIN         4
+#define SPEAKER_PIN_PORT    B
+#define SPEAKER_PIN_POS     4
 
 /*  Typedefs  */
 
@@ -43,15 +48,41 @@ static void readEEPROM(uint8_t address, uint8_t *pData, uint8_t len);
 static void writeEEPROM(uint8_t address, uint8_t *pData, uint8_t len);
 static void manageCalibration(int16_t x, int16_t y, int16_t z);
 static void controlBrightness(void);
+static void toggleSound(void);
 static void saveConfig(void);
 static void getDPadPixel(int8_t x, int8_t y, uint8_t &r, uint8_t &g, uint8_t &b);
 static void getDPadPixelSub(int8_t current, int8_t last, uint8_t &r, uint8_t &g, uint8_t &b);
+static void forwardSoundScore(void);
+static void setupSoundTimer(uint16_t frequency, uint16_t duration);
+
+/*  Local Functions (Macros)  */
+
+#define enableSoundTimer()      bitSet(TIMSK, OCIE1A)
+#define disableSoundTimer()     bitClear(TIMSK, OCIE1A)
+#define isSoundTimerActive()    bitRead(TIMSK, OCIE1A)
+
+/*  Local Constants  */
+
+PROGMEM static const uint16_t noteFrequency[] = {
+    8372, 8870, 9397, 9956, 10548, 11175, 11840, 12544, 13290, 14080, 14917, 15804
+};
+
+PROGMEM static const uint8_t soundOn[] = {
+    73, 10, 85, 10, 97, 10, 0xFF
+};
+PROGMEM static const uint8_t soundOff[] = {
+    94, 5, 70, 5, 0xFF
+};
 
 /*  Local Variables  */
 
 static Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXELS_NUMBER, PIXELS_PIN, NEO_GRB + NEO_KHZ800);
 static int8_t lastVx, lastVy, currentVx, currentVy, brightness;
-static bool isCalibrated;
+static bool isSoundEnable, isCalibrated;
+
+static volatile uint32_t toneToggleCount;
+static volatile const uint8_t *pSoundScore;
+static volatile uint8_t soundValue;
 
 /*---------------------------------------------------------------------------*/
 
@@ -59,8 +90,8 @@ void initDevices(void)
 {
     uint8_t data[4];
     readEEPROM(0, data, 4);
-    brightness = data[3];
-    if (brightness > BRIGHTNESS_MAX) brightness = 1;
+    brightness = data[3] & 0x03;
+    isSoundEnable = data[3] & 0x80;
 
     /*  Button  */
     pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -84,6 +115,12 @@ void initDevices(void)
     brightness--;
     controlBrightness();
 
+    /*  Speaker  */
+    pinMode(SPEAKER_PIN, OUTPUT);
+    digitalWrite(SPEAKER_PIN, LOW);
+    disableSoundTimer();
+    soundValue = 0;
+
     /*  Random Seed  */
     SimpleWire1M::readWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_DATAX0, data, 4);
     randomSeed((unsigned long)*data);
@@ -94,7 +131,8 @@ void getDPad(int8_t &vx, int8_t &vy)
     lastVx = currentVx;
     lastVy = currentVy;
     uint8_t dac[6];
-    if (SimpleWire1M::readWithCommand(ADXL345_I2C_ADDR, ADXL345_REG_DATAX0, dac, sizeof(dac)) > 0) {
+    if (!isSoundTimerActive() && SimpleWire1M::readWithCommand(
+            ADXL345_I2C_ADDR, ADXL345_REG_DATAX0, dac, sizeof(dac)) > 0) {
         int16_t x = (dac[1] << 8) | dac[0];
         int16_t y = (dac[3] << 8) | dac[2];
         int16_t z = (dac[5] << 8) | dac[4];
@@ -126,14 +164,36 @@ void refreshPixels(void)
 
 void manageConfigByButton(void)
 {
-    static uint8_t lastButtonState = HIGH, idle = BUTTON_FRAMES_SAVE;
+    static uint8_t hold = BUTTON_FRAMES_SOUND, idle = BUTTON_FRAMES_SAVE;
     if (digitalRead(BUTTON_PIN) == LOW) {
-        if (lastButtonState == HIGH) controlBrightness();
-        lastButtonState = LOW;
+        if (hold < BUTTON_FRAMES_SOUND && ++hold == BUTTON_FRAMES_SOUND) toggleSound();
         idle = 0;
     } else {
-        lastButtonState = HIGH;
+        if (hold > 0 && hold < BUTTON_FRAMES_SOUND) controlBrightness();
         if (idle < BUTTON_FRAMES_SAVE && ++idle == BUTTON_FRAMES_SAVE) saveConfig();
+        hold = 0;
+    }
+}
+
+void playTone(uint16_t frequency, uint16_t duration, uint8_t value)
+{
+    if (isSoundEnable && value >= soundValue) {
+        disableSoundTimer();
+        pSoundScore = NULL;
+        soundValue = value;
+        setupSoundTimer(frequency, duration);
+    }
+}
+
+void playScore(const uint8_t *pScore, uint8_t value)
+{
+    if ((isSoundEnable || pScore == soundOff) && value >= soundValue) {
+        disableSoundTimer();
+        pSoundScore = pScore;
+        if (pScore != NULL) {
+            soundValue = value;
+            forwardSoundScore();
+        }
     }
 }
 
@@ -184,9 +244,15 @@ void controlBrightness(void)
     pixels.setBrightness(brightness << 6 | 0x3F);
 }
 
+void toggleSound(void)
+{
+    isSoundEnable = !isSoundEnable;
+    playScore((isSoundEnable) ? soundOn : soundOff, 255);
+}
+
 static void saveConfig(void)
 {
-    uint8_t data = brightness;
+    uint8_t data = isSoundEnable << 7 | brightness;
     writeEEPROM(3, &data, 1);
 }
 
@@ -213,5 +279,51 @@ static void getDPadPixelSub(int8_t current, int8_t last, uint8_t &r, uint8_t &g,
         }
     } else if (last > 0) {
         b = 8;
+    }
+}
+
+static void forwardSoundScore(void)
+{
+    uint8_t note = pgm_read_byte(pSoundScore++);
+    if (bitRead(note, 7)) {
+        pSoundScore = NULL;
+        soundValue = 0;
+        return;
+    }
+    uint16_t frequency = pgm_read_word(&noteFrequency[note % 12]);
+    frequency >>= (131 - note) / 12;
+    setupSoundTimer(frequency, pgm_read_byte(pSoundScore++) * 8);
+}
+
+static void setupSoundTimer(uint16_t frequency, uint16_t duration)
+{
+    frequency *= 2;
+    toneToggleCount = (uint32_t)duration * frequency / 1000 + 1;
+    uint32_t ocr = F_CPU / frequency;
+    uint8_t prescalarBits = 0b0001;
+    while (ocr > 0xff && prescalarBits < 0b1111) {
+        prescalarBits++;
+        ocr >>= 1;
+    }
+    TCCR1 = 0b10000000 | prescalarBits; // CTC1=1, PWM1A=0, COM1A=00
+    OCR1C = ocr - 1;
+    TCNT1 = 0;
+    enableSoundTimer();
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+    if (toneToggleCount > 0) {
+        if (--toneToggleCount) {
+            PORTB ^= _BV(SPEAKER_PIN_POS);
+        } else {
+            PORTB &= ~_BV(SPEAKER_PIN_POS);
+            disableSoundTimer();
+            if (pSoundScore != NULL) {
+                forwardSoundScore();
+            } else {
+                soundValue = 0;
+            }
+        }
     }
 }

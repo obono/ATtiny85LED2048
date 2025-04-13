@@ -13,6 +13,8 @@ void initDevices(void);
 void manageConfigByButton(void);
 void getDPad(int8_t &vx, int8_t &vy);
 void refreshPixels(void);
+void playTone(uint16_t frequency, uint16_t duration = MILLIS_PER_FRAME, uint8_t value = 0);
+void playScore(const uint8_t *pScore, uint8_t value = 0);
 
 void initGame(void);
 void updateGame(int8_t vx, int8_t vy);
