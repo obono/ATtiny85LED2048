@@ -1,14 +1,47 @@
 # ATtiny85LED2048
 
-:construction:
+![Movie](doc/movie.gif)
+
+A clone of 2048 puzzle game with ATtiny85.
 
 ## Instruction
 
-:construction:
+Tilt the device to move the lights. Lights with the same color merge into one when they touch. Add them up to reach white as 2048!
+
+Color     |Number|Color     |Number|Color     |Number|Color     |Number
+----------|------|----------|------|----------|------|----------|------
+Red       |2     |Orange    |4     |Yellow    |8     |Lime green|16
+Green     |32    |Sky blue  |64    |Blue      |128   |Purple    |256
+Pink      |512   |Pale pink |1024  |White     |2048  |          |
+
+![Color samples](doc/color_samples.jpg)
+
+* Button short press: Change the brightness in 4 levels.
+* Button long press: Toggle sound on/off.
 
 ## Hardware
 
-:construction:
+### Components
+
+* An [ATtiny85](https://akizukidenshi.com/catalog/g/g109573/)
+* A [3 axis accelerometer module with ADXL345](https://akizukidenshi.com/catalog/g/g107234/)
+* [WS2812Bs arranged as 4&times;4](https://eleshop.jp/shop/g/gL1F316/)
+* A battery holder and battery(ies)
+* A slide switch
+* A tactile switch
+* A piezo buzzer
+* Wires, connectors, etc...
+
+### Schematic
+
+[![Click to expand](doc/schematic_thumbnail.png)](doc/schematic.png)
+
+### Examples
+
+[![Click to expand](doc/picture1_thumbnail.jpg)](doc/picture1.jpg)
+[![Click to expand](doc/picture2_thumbnail.jpg)](doc/picture2.jpg)
+[![Click to expand](doc/picture3_thumbnail.jpg)](doc/picture3.jpg)
+[![Click to expand](doc/picture4_thumbnail.jpg)](doc/picture4.jpg)
 
 ## Software
 
@@ -42,4 +75,5 @@ These codes are licensed under [MIT License](LICENSE).
 
 ## References
 
-:construction:
+* [Tiny2048 | Hackaday.io](https://hackaday.io/project/197115-tiny2048)
+* [2048 by Gabriele Cirulli](https://play2048.co/)
