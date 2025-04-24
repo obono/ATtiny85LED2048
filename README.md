@@ -19,6 +19,8 @@ Pink      |512   |Pale pink |1024  |White     |2048  |          |
 * Button short press: Change the brightness in 4 levels.
 * Button long press: Toggle sound on/off.
 
+To calibration, keep the device upside down and flat for a while. Then the device will be in test mode to be checked tilt sensing. Press the button to recover to normal mode.
+
 ## Hardware
 
 ### Components

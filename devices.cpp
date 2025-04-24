@@ -26,7 +26,7 @@
 #define TILT_ON             80
 #define TILT_OFF            30
 #define TILT_1G             256
-#define TILT_TOLERANCE      16
+#define TILT_TOLERANCE      24
 #define TILT_OFFSET_SAMPLES 32
 
 #define PIXELS_PIN          3
@@ -145,8 +145,8 @@ void getDPad(int8_t &vx, int8_t &vy)
         if (tiltY <= -TILT_ON) currentVy = -1;
         if (tiltY >= TILT_ON) currentVy = 1;
     }
-    vx = (currentVx != lastVx) ? currentVx : 0;
-    vy = (currentVy != lastVy) ? currentVy : 0;
+    vx = (!isCalibrated && currentVx != lastVx) ? currentVx : 0;
+    vy = (!isCalibrated && currentVy != lastVy) ? currentVy : 0;
 }
 
 void refreshPixels(void)
@@ -166,6 +166,7 @@ void manageConfigByButton(void)
 {
     static uint8_t hold = BUTTON_FRAMES_SOUND, idle = BUTTON_FRAMES_SAVE;
     if (digitalRead(BUTTON_PIN) == LOW) {
+        if (isCalibrated) isCalibrated = false, hold = BUTTON_FRAMES_SOUND;
         if (hold < BUTTON_FRAMES_SOUND && ++hold == BUTTON_FRAMES_SOUND) toggleSound();
         idle = 0;
     } else {
@@ -273,12 +274,12 @@ static void getDPadPixelSub(int8_t current, int8_t last, uint8_t &r, uint8_t &g,
 {
     if (current > 0) {
         if (last <= 0) {
-            r = g = 8;
+            r = g = 16;
         } else {
-            r = g = b = 2;
+            r = g = b = 4;
         }
     } else if (last > 0) {
-        b = 8;
+        b = 16;
     }
 }
 
